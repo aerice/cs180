@@ -1,5 +1,7 @@
 // clang-format off
 #include <iostream>
+#include <cmath>
+#include <algorithm>
 #include <opencv2/opencv.hpp>
 #include "rasterizer.hpp"
 #include "global.hpp"
@@ -31,7 +33,32 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
 Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float zNear, float zFar)
 {
     // TODO: Copy-paste your implementation from the previous assignment.
-    Eigen::Matrix4f projection;
+    Eigen::Matrix4f projection = Eigen::Matrix4f::Identity();
+    float fovY = MY_PI / 180 * eye_fov;  // angle to radian
+    float t = -std::tan(fovY / 2) * std::abs(zNear);
+    float r = aspect_ratio * t;
+    float b = -t;
+    float l = -r;
+    
+    float n = std::abs(zNear);
+    float f = std::abs(zFar);
+    Eigen::Matrix4f perspToortho;
+    perspToortho << n, 0, 0,   0,
+                    0, n, 0,   0, 
+                    0, 0, n+f, -n*f, 
+                    0, 0, 1,   0;
+    Eigen::Matrix4f othro = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4f translate, scale;
+    translate << 1, 0, 0, -(r+l)/2,
+                 0, 1, 0, -(t+b)/2,
+                 0, 0, 1, -(n+f)/2,
+                 0, 0, 0, 1;
+    scale << 2/(r-l), 0,       0,       0,
+             0,       2/(t-b), 0,       0,
+             0,       0,       2/(n-f), 0,
+             0,       0,       0,       1;
+    othro = scale * translate * othro;
+    projection = othro * perspToortho * projection;
 
     return projection;
 }

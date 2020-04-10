@@ -39,10 +39,31 @@ auto to_vec4(const Eigen::Vector3f& v3, float w = 1.0f)
     return Vector4f(v3.x(), v3.y(), v3.z(), w);
 }
 
+// customer fuction with cross of vector
+static Vector3f cross(Vector3f& v1, Vector3f& v2) {
+    return Vector3f(v1.y()*v2.z() - v1.z()*v2.y(),
+                    v1.z()*v2.x() - v1.x()*v2.z(),
+                    v1.x()*v2.y() - v1.y()*v2.x());
+}
 
 static bool insideTriangle(int x, int y, const Vector3f* _v)
 {   
     // TODO : Implement this function to check if the point (x, y) is inside the triangle represented by _v[0], _v[1], _v[2]
+    Vector3f vec1 = Vector3f(_v[1].x() - _v[0].x(), _v[1].y() - _v[0].y(), 1.f);
+    Vector3f vec2 = Vector3f(_v[2].x() - _v[1].x(), _v[2].y() - _v[1].y(), 1.f);
+    Vector3f vec3 = Vector3f(_v[0].x() - _v[2].x(), _v[0].y() - _v[2].y(), 1.f);
+
+    Vector3f v1 = Vector3f(x - _v[0].x(), y - _v[0].y(), 1.f);
+    Vector3f v2 = Vector3f(x - _v[1].x(), y - _v[1].y(), 1.f);
+    Vector3f v3 = Vector3f(x - _v[2].x(), y - _v[2].y(), 1.f);
+
+    auto c1 = cross(vec1, v1);
+    auto c2 = cross(vec2, v2);
+    auto c3 = cross(vec3, v3);
+    if ( (c1.z() < 0 && c2.z() < 0 && c3.z() < 0) || (c1.z() > 0 && c2.z() > 0 && c3.z() > 0) ) {
+        return true;
+    }
+    return false;
 }
 
 static std::tuple<float, float, float> computeBarycentric2D(float x, float y, const Vector3f* v)
@@ -105,7 +126,27 @@ void rst::rasterizer::draw(pos_buf_id pos_buffer, ind_buf_id ind_buffer, col_buf
 //Screen space rasterization
 void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     auto v = t.toVector4();
-    
+    int minX, minY, maxX, maxY;
+    minX = std::min(v[0].x(), std::min(v[1].x(), v[2].x()));
+    minY = std::min(v[0].y(), std::min(v[1].y(), v[2].y()));
+    maxX = std::max(v[0].x(), std::max(v[1].x(), v[2].x()));
+    maxY = std::max(v[0].y(), std::max(v[1].y(), v[2].y()));
+    for (int x = minX; x <= maxX+1; ++x) {
+        for (int y = minY; y <= maxY; ++y) {
+            if ( insideTriangle(x, y, t.v) ) {
+                // If so, use the following code to get the interpolated z value.
+                auto[alpha, beta, gamma] = computeBarycentric2D(x, y, t.v);
+                float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+                float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+                z_interpolated *= w_reciprocal;
+                int index = get_index(x, y);
+                if (z_interpolated <= depth_buf[index]) {
+                    set_pixel(Vector3f(x, y, z_interpolated), t.getColor());
+                    depth_buf[index] = z_interpolated;
+                }
+            }
+        }
+    }
     // TODO : Find out the bounding box of current triangle.
     // iterate through the pixel and find if the current pixel is inside the triangle
 
