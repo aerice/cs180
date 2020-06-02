@@ -1,0 +1,3 @@
+/home/cs18/cs180/assigment2/code/build/CMakeFiles/rebuild_cache.dir
+/home/cs18/cs180/assigment2/code/build/CMakeFiles/Rasterizer.dir
+/home/cs18/cs180/assigment2/code/build/CMakeFiles/edit_cache.dir
